@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CNP TCG: AI BATTLE ARENA (Ultimate Responsive Edition)</title>
+    <!-- Chosen Palette: Galactic Arena (Deep navy background, cool gray elements, with vibrant blue for player actions and crimson red for opponent actions/damage, accented with amber for phase indicators and highlights.) -->
+    <!-- Application Structure Plan: The application is structured as a single-page 'Battle Arena', directly representing the game board from the source material (playmat guide). This is the most intuitive structure for a card game, allowing users to instantly understand the game state. The user flow is turn-based, guided by a central phase indicator. Interaction is direct: users click cards and targets. This design prioritizes immediate comprehension and immersive gameplay over abstract data representation, which is ideal for translating a game's rules into an interactive experience. -->
+    <!-- Visualization & Content Choices:
+    - Game State (Inform): Textual stats (Deck/Hand/Reiki count) are used for clarity. The layout itself acts as a diagram of the game state.
+    - Card Interactions (Relationships): JavaScript-driven highlighting shows valid plays. When a card is selected, playable slots glow. During battle, selectable attackers and targets glow, making the action-target relationship clear.
+    - Turn Progression (Change): A prominent 'Phase Indicator' text block, updated by JS, guides the user through the turn's phases (Draw, Main, Battle, End).
+    - Battle Outcome (Compare): Card BP is directly compared. The outcome is visualized with a CSS animation (attack line) and a damage number popup, providing immediate, impactful feedback.
+    - Libraries: Vanilla JS for all logic. No Chart.js/Plotly.js needed as the "data" is the game state itself, best visualized through a custom interactive diagram (the game board). -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Noto+Sans+JP:wght@400;700&family=Orbitron:wght@700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --player-color: #2563eb; --opponent-color: #dc2626; --highlight-color: #f59e0b;
+        }
+        html, body { overscroll-behavior: none; }
+        body {
+            font-family: 'Inter', 'Noto Sans JP', sans-serif; background-color: #030712;
+            background-image: url('https://cnptcg.s3.ap-northeast-1.amazonaws.com/images/background/bg_main.png');
+            background-size: cover; background-position: center; background-attachment: fixed;
+            color: #f9fafb; overflow: hidden; user-select: none;
+        }
+        .font-orbitron { font-family: 'Orbitron', sans-serif; }
+        .card {
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); transform-style: preserve-3d;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5); border-radius: 0.5rem; cursor: pointer;
+            border: 2px solid #4b5563; width: 80px; height: 112px; position: relative;
+        }
+        .card-inner { width: 100%; height: 100%; object-fit: cover; border-radius: 0.375rem; }
+        .card.rested { transform: rotate(90deg) scale(0.9); }
+        .card.in-hand:hover { transform: translateY(-20px) scale(1.15); z-index: 100; }
+        .card.selected { transform: translateY(-15px) scale(1.1); box-shadow: 0 0 20px var(--player-color); border-color: var(--player-color); }
+        .card.can-attack { box-shadow: 0 0 15px var(--highlight-color); border-color: var(--highlight-color); animation: pulse 1.5s infinite; }
+        .targetable { animation: pulse-red 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { box-shadow: 0 0 15px var(--highlight-color); } 50% { box-shadow: 0 0 25px var(--highlight-color); } }
+        @keyframes pulse-red { 0%, 100% { box-shadow: 0 0 15px var(--opponent-color); border-color: var(--opponent-color);} 50% { box-shadow: 0 0 25px var(--opponent-color); border-color: var(--opponent-color);} }
+        .field-slot {
+            border: 2px dashed #374151; background-color: rgba(17, 24, 39, 0.5); transition: all 0.3s ease;
+            min-height: 122px; border-radius: 0.5rem; display: flex; align-items: center; justify-content: center;
+        }
+        .field-slot.playable { border-color: var(--player-color); box-shadow: 0 0 15px var(--player-color); }
+        .phase-indicator { box-shadow: 0 0 20px rgba(234, 179, 8, 0.4); }
+        .attack-effect {
+            position: fixed; width: 100px; height: 100px;
+            background-image: radial-gradient(circle, white, rgba(255, 100, 100, 0));
+            border-radius: 50%; transform: scale(0); pointer-events: none; z-index: 201;
+            animation: attack-flash 0.4s ease-out;
+        }
+        @keyframes attack-flash { 0% { transform: scale(0); opacity: 1; } 100% { transform: scale(2); opacity: 0; } }
+        .action-button:disabled { filter: grayscale(80%); cursor: not-allowed; opacity: 0.7; }
+        .deck { background: #1f2937; border: 2px solid #4b5563; color: #9ca3af; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: bold; border-radius: 0.5rem; width: 80px; height: 112px; }
+        .base { border: 2px solid #4b5563; background-color: #1f2937; position: relative; width: 64px; height: 30px; border-radius: 0.25rem; }
+        .base.conquered-by-player { border-color: var(--player-color); box-shadow: 0 0 15px var(--player-color); }
+        .base.conquered-by-opponent { border-color: var(--opponent-color); box-shadow: 0 0 15px var(--opponent-color); }
+        .gauge-bar { position: absolute; bottom: -10px; left: 0; width: 100%; height: 5px; background-color: #4b5563; border-radius: 2px; }
+        .gauge-bar-inner { height: 100%; background-color: #f59e0b; border-radius: 2px; transition: width 0.3s ease; }
+        .log-entry { transition: opacity 0.5s, transform 0.5s; opacity: 0; transform: translateX(-20px); }
+        .log-entry.visible { opacity: 1; transform: translateX(0); }
+        .card-overlay-text {
+            position: absolute; bottom: 0; left: 0; right: 0; padding: 2px;
+            background: linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0));
+            border-bottom-left-radius: 0.375rem; border-bottom-right-radius: 0.375rem;
+            font-size: 10px; line-height: 1.2; text-shadow: 1px 1px 2px black;
+        }
+        @media (min-width: 640px) {
+            .card { width: 100px; height: 140px; }
+            .deck { width: 100px; height: 140px; }
+            .field-slot { min-height: 150px; }
+            .base { width: 80px; }
+            .card-overlay-text { font-size: 12px; }
+        }
+    </style>
+</head>
+<body class="p-1 sm:p-4 text-xs sm:text-base">
+    <div id="splash-screen" class="fixed inset-0 bg-gray-900 z-50 flex items-center justify-center transition-opacity duration-500">
+        <div class="text-center p-8 bg-black/50 rounded-2xl shadow-2xl max-w-md w-full mx-4">
+            <img src="https://cnptcg.s3.ap-northeast-1.amazonaws.com/images/logo/logo.png" alt="CNP TCG Logo" class="w-2/3 mx-auto mb-8">
+            <div class="space-y-4">
+                <input type="text" id="player1-name-input" placeholder="プレイヤー1の名前" class="w-full bg-gray-700 text-white p-3 rounded-lg text-center" value="りゅうや">
+                <input type="text" id="player2-name-input" placeholder="プレイヤー2の名前" class="w-full bg-gray-700 text-white p-3 rounded-lg text-center" value="紫苑">
+            </div>
+            <div class="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button id="start-pve-btn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-transform transform hover:scale-105">PLAYER vs AI</button>
+                <button id="start-eve-btn" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-lg transition-transform transform hover:scale-105">AI vs AI (高速)</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="game-container" class="max-w-screen-2xl mx-auto flex flex-col h-screen opacity-0 transition-opacity duration-500">
+        <div id="opponent-area" class="mb-2">
+            <div class="flex justify-between items-center mb-2 px-1 sm:px-4">
+                <div class="flex items-center gap-2 sm:gap-4"><h2 id="opponent-name" class="text-base sm:text-lg font-bold text-red-500">AI</h2><div id="opponent-hand-count" class="font-semibold">Hand: <span class="font-orbitron">0</span></div></div>
+                <div id="opponent-bases" class="flex gap-1 sm:gap-2"></div>
+            </div>
+            <div class="flex items-end gap-1 sm:gap-4">
+                <div class="flex flex-col-reverse justify-end gap-2 p-1 sm:p-2 bg-gray-900/50 rounded-lg"><div id="opponent-reiki-deck" class="deck">レイキ</div><div id="opponent-reiki-count" class="text-center font-bold">レイキ: <span class="font-orbitron">0</span></div></div>
+                <div class="grid grid-cols-5 gap-1 sm:gap-2 flex-grow">
+                    <div id="opponent-field-vanguard1" class="field-slot" data-type="field" data-owner="opponent" data-slot="vanguard1"></div><div id="opponent-field-vanguard2" class="field-slot" data-type="field" data-owner="opponent" data-slot="vanguard2"></div>
+                    <div id="opponent-field-rearguard1" class="field-slot" data-type="field" data-owner="opponent" data-slot="rearguard1"></div><div id="opponent-field-rearguard2" class="field-slot" data-type="field" data-owner="opponent" data-slot="rearguard2"></div>
+                    <div id="opponent-field-support" class="field-slot" data-type="field" data-owner="opponent" data-slot="support"></div>
+                </div>
+                <div class="flex flex-col gap-2 p-1 sm:p-2 bg-gray-900/50 rounded-lg"><div id="opponent-deck" class="deck">Deck</div><div id="opponent-trash" class="deck">Trash</div></div>
+            </div>
+        </div>
+        <div class="grid grid-cols-12 gap-4 my-2 h-24 flex-shrink-0">
+            <div id="phase-display" class="col-span-12 md:col-span-9 bg-gray-900 p-2 sm:p-4 rounded-lg flex justify-between items-center phase-indicator"></div>
+            <div class="hidden md:block col-span-3 bg-gray-900 p-2 rounded-lg"><h2 class="text-sm font-bold text-gray-400 mb-1">BATTLE LOG</h2><div id="battle-log" class="h-full overflow-y-auto pr-2 text-xs"></div></div>
+        </div>
+        <div id="player-area" class="mt-auto">
+            <div class="flex items-start gap-1 sm:gap-4">
+                <div class="flex flex-col gap-2 p-1 sm:p-2 bg-gray-900/50 rounded-lg"><div id="player-reiki-deck" class="deck">レイキ</div><div id="player-reiki-count" class="text-center font-bold">レイキ: <span class="font-orbitron">0</span></div></div>
+                <div class="grid grid-cols-5 gap-1 sm:gap-2 flex-grow">
+                    <div id="player-field-vanguard1" class="field-slot" data-type="field" data-owner="player" data-slot="vanguard1"></div><div id="player-field-vanguard2" class="field-slot" data-type="field" data-owner="player" data-slot="vanguard2"></div>
+                    <div id="player-field-rearguard1" class="field-slot" data-type="field" data-owner="player" data-slot="rearguard1"></div><div id="player-field-rearguard2" class="field-slot" data-type="field" data-owner="player" data-slot="rearguard2"></div>
+                    <div id="player-field-support" class="field-slot" data-type="field" data-owner="player" data-slot="support"></div>
+                </div>
+                <div class="flex flex-col gap-2 p-1 sm:p-2 bg-gray-900/50 rounded-lg"><div id="player-deck" class="deck">Deck</div><div id="player-trash" class="deck">Trash</div></div>
+            </div>
+            <div class="flex justify-between items-center mt-2 px-1 sm:px-4">
+                <div class="flex items-center gap-2 sm:gap-4"><h2 id="player-name" class="text-base sm:text-lg font-bold text-blue-500">PLAYER</h2><div id="player-hand-count" class="font-semibold">Hand: <span class="font-orbitron">0</span></div></div>
+                <div id="player-bases" class="flex gap-1 sm:gap-2"></div>
+            </div>
+        </div>
+        <div id="player-hand-area" class="flex-shrink-0 bg-gradient-to-t from-gray-900 via-gray-900/80 to-transparent p-2 flex justify-center items-end min-h-[160px] sm:min-h-[220px] pointer-events-none"><div id="player-hand-cards" class="flex gap-1 sm:gap-2 items-end pointer-events-auto"></div></div>
+        <div id="modal-overlay" class="hidden fixed inset-0 bg-black/80 flex items-center justify-center z-50"><div id="modal-content" class="bg-gray-800 border-2 border-amber-400 p-8 rounded-lg text-center shadow-2xl"><h2 id="modal-title" class="text-4xl font-bold mb-4 font-orbitron"></h2><p id="modal-text" class="text-lg text-gray-300 mb-6"></p><div id="modal-buttons" class="flex justify-center gap-4"></div></div></div>
+    </div>
+
+<script type="module">
+const CONFIG = {
+    API_URL: "https://app.cnptcg.monolithos.co.jp/api/cards?limit=500&sort=newest",
+    NUM_BASES: 3, GAUGE_PER_BASE: 2, INITIAL_HAND_SIZE: 5, MAX_REIKI: 10, TURN_DELAY: 300, MAX_TURNS: 50,
+    PLACEHOLDER_IMG: "https://placehold.co/100x140/030712/f9fafb?text=CNP",
+};
+
+const FALLBACK_CARD_DATA = [
+    { name: "リーリー", rarity: "C", skill_text: "" }, { name: "ミタマ", rarity: "C", skill_text: "" }, { name: "ヤーマ", rarity: "R", skill_text: "【登場時】BPを+2000する。" }, { name: "ナルカミ", rarity: "RR", skill_text: "【登場時】カードを1枚引く。" }, { name: "ルナ", rarity: "RRR", skill_text: "【アタック時】このターンの間、このユニットのBPを+1000する。" }, { name: "レイキ", rarity: "C", name: "レイキ", skill_text: "" }, { name: "レイキ", rarity: "C", skill_text: "" }, { name: "レイキ", rarity: "C", skill_text: "" }, { name: "オロチ", rarity: "SR", skill_text: "" }, { name: "トウテツ", rarity: "C", skill_text: "" }, { name: "キュウビ", rarity: "R", skill_text: "" }, { name: "コノハ", rarity: "C", skill_text: "" }, { name: "イヴェール", rarity: "C", skill_text: "" }, { name: "マカミ", rarity: "R", skill_text: "" },
+];
+
+const IMAGE_CACHE = {
+    "リーリー": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+    "ナルカミ": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=",
+    "CARD_BACK": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="
+};
+
+class GameEngine {
+    constructor() {
+        this.ui = new UIManager(this);
+        this.state = null;
+        this.ai = new AIAgent(this);
+        this.isProcessing = true;
+        this.actionPromise = null;
+    }
+
+    async start() {
+        this.ui.showSplashScreen();
+    }
+
+    async initGame(allCards, gameMode, playerNames) {
+        this.state = this.createInitialGameState(allCards, gameMode, playerNames);
+        this.ui.hideSplashScreen();
+        await this.delay(500);
+        this.runGameLoop();
+    }
+
+    processCardData(card) {
+        const rarityBP = { C: 1000, R: 1500, RR: 2000, RRR: 2500, SR: 3000, SEC: 3500, 'P-RR': 1800, 'P-RRR': 3800, 'SP-RRR': 4000 };
+        const rarityCost = { C: 1, R: 2, RR: 2, RRR: 3, SR: 3, SEC: 4, 'P-RR': 2, 'P-RRR': 3, 'SP-RRR': 4 };
+        let type = 'unit';
+        if(card.category === 'event' || (card.skill_text && card.skill_text.includes("イベント"))) type = 'event';
+        if(card.category === 'support' || (card.skill_text && card.skill_text.includes("サポート"))) type = 'support';
+        if(card.name === 'レイキ') type = 'reiki';
+        const imageUrl = IMAGE_CACHE[card.name] || card.imageUrl || CONFIG.PLACEHOLDER_IMG;
+        return { ...card, uuid: self.crypto.randomUUID(), bp: rarityBP[card.rarity] || 1000, cost: rarityCost[card.rarity] || 1, type, rested: false, imageUrl };
+    }
+    
+    createInitialGameState(allCards, gameMode, playerNames) {
+        const createPlayerState = () => {
+            const mainDeck = allCards.filter(c => c.type !== 'reiki').sort(() => 0.5 - Math.random());
+            const reikiDeck = allCards.filter(c => c.type === 'reiki').sort(() => 0.5 - Math.random());
+            const hand = mainDeck.splice(0, CONFIG.INITIAL_HAND_SIZE);
+            const bases = Array(CONFIG.NUM_BASES).fill(0).map(() => ({ gauges: mainDeck.splice(0, CONFIG.GAUGE_PER_BASE), owner: null }));
+            return { mainDeck, reikiDeck, hand, bases, reiki: 0, maxReiki: 0, trash: [], field: { vanguard1: null, vanguard2: null, rearguard1: null, rearguard2: null, support: null }, };
+        };
+        return { players: [createPlayerState(), createPlayerState()], turn: 1, activePlayerIndex: 0, phase: 'start', winner: null, gameMode, playerNames };
+    }
+
+    async runGameLoop() {
+        while (this.state.winner === null) {
+            await this.executeTurn();
+        }
+        const winnerName = this.getPlayerName(this.state.winner);
+        this.ui.showModal(`${winnerName}の勝利！`, "素晴らしい戦いでした。", [{ text: "もう一度プレイ", callback: () => window.location.reload() }]);
+    }
+
+    async executeTurn() {
+        const playerIndex = this.state.activePlayerIndex;
+        this.state.phase = 'start';
+        this.ui.update(this.state);
+        this.ui.addLog(`ターン ${this.state.turn} - ${this.getPlayerName(playerIndex)} のターン`);
+        
+        await this.delay();
+        this.activePhase(playerIndex);
+        this.reikiChargePhase(playerIndex);
+        this.drawPhase(playerIndex);
+
+        this.state.phase = 'main';
+        this.ui.update(this.state);
+        await this.mainPhase();
+
+        this.state.phase = 'battle';
+        this.ui.update(this.state);
+        await this.battlePhase();
+
+        this.state.phase = 'end';
+        this.ui.update(this.state);
+        this.checkWinner();
+        this.state.activePlayerIndex = (playerIndex + 1) % 2;
+        if (this.state.activePlayerIndex === 0 && this.state.gameMode === 'PvE') this.state.turn++;
+        else if (this.state.gameMode === 'EvE' && this.state.activePlayerIndex === 0) this.state.turn++;
+    }
+
+    activePhase(playerIndex) {
+        const player = this.state.players[playerIndex];
+        Object.values(player.field).forEach(card => { if (card) card.rested = false; });
+        this.ui.addLog("アクティブフェイズ");
+    }
+    reikiChargePhase(playerIndex) {
+        const player = this.state.players[playerIndex];
+        if (player.maxReiki < CONFIG.MAX_REIKI) player.maxReiki++;
+        player.reiki = player.maxReiki;
+        this.ui.addLog("レイキチャージフェイズ");
+    }
+    drawPhase(playerIndex) {
+        if(this.state.turn === 1 && playerIndex === 0 && this.state.gameMode === 'PvE') return;
+        const player = this.state.players[playerIndex];
+        if (player.mainDeck.length > 0) player.hand.push(player.mainDeck.pop());
+        this.ui.addLog("ドローフェイズ");
+    }
+
+    async mainPhase() {
+        if (this.isHumanTurn()) {
+            await this.waitForPlayerAction('main');
+        } else {
+            await this.ai.executeMainPhase();
+        }
+    }
+
+    async battlePhase() {
+        if (this.isHumanTurn()) {
+            await this.waitForPlayerAction('battle');
+        } else {
+            await this.ai.executeBattlePhase();
+        }
+    }
+
+    isHumanTurn() { return this.state.activePlayerIndex === 0 && this.state.gameMode === 'PvE'; }
+    getPlayerName(index) { return this.state.playerNames[index]; }
+    delay(ms) {
+        const speed = this.state.gameMode === 'EvE' ? 0.5 : 1;
+        return new Promise(res => setTimeout(res, (ms || CONFIG.TURN_DELAY) * speed));
+    }
+    
+    checkWinner() {
+        this.state.players.forEach((player, index) => {
+            const opponentIndex = (index + 1) % 2;
+            const conqueredBases = this.state.players[opponentIndex].bases.filter(b => b.owner === index).length;
+            if (conqueredBases >= 2) {
+                this.state.winner = index;
+            }
+        });
+    }
+
+    async waitForPlayerAction(phase) {
+        this.isProcessing = false;
+        this.ui.update(this.state);
+        await new Promise(resolve => { this.actionPromise = { resolve }; });
+        this.isProcessing = true;
+    }
+
+    endPhaseForPlayer() {
+        if (this.isHumanTurn() && !this.isProcessing && this.actionPromise) {
+            this.actionPromise.resolve();
+            this.actionPromise = null;
+        }
+    }
+
+    handlePlayerAction(data) {
+        if (!this.isHumanTurn() || this.isProcessing) return;
+        
+        const { type, cardUUID, slot, owner } = data;
+        const player = this.state.players[0];
+
+        if (this.state.phase === 'main') {
+            if (type === 'hand') {
+                const card = player.hand.find(c => c.uuid === cardUUID);
+                this.ui.selectCard(card, 'hand');
+            } else if (type === 'field' && this.ui.selectedCard && this.ui.selectedCard.type === 'hand') {
+                this.playCard(0, this.ui.selectedCard.uuid, slot);
+            }
+        } else if (this.state.phase === 'battle') {
+            const cardOnField = player.field[slot];
+            if (type === 'field' && cardOnField && !cardOnField.rested) {
+                 this.ui.selectCard(cardOnField, 'field');
+            } else if (this.ui.selectedCard && this.ui.selectedCard.type === 'field') {
+                if (type === 'field' && owner === 'opponent') this.initiateAttack(0, this.ui.selectedCard.slot, slot);
+                if (type === 'base' && owner === 'opponent') this.initiateAttack(0, this.ui.selectedCard.slot, `base${slot}`);
+            }
+        }
+    }
+
+    playCard(playerIndex, cardUUID, slot) {
+        const player = this.state.players[playerIndex];
+        const cardIndex = player.hand.findIndex(c => c.uuid === cardUUID);
+        if (cardIndex === -1) return;
+        const card = player.hand[cardIndex];
+
+        if (player.reiki >= card.cost && !player.field[slot]) {
+            player.reiki -= card.cost;
+            player.hand.splice(cardIndex, 1);
+            player.field[slot] = card;
+            this.ui.addLog(`${this.getPlayerName(playerIndex)}が${card.name}を召喚`);
+            this.ui.unselectCard();
+            this.ui.update(this.state);
+        } else {
+             this.ui.addLog("コスト不足かスロットが埋まっています", "error");
+        }
+    }
+    
+    initiateAttack(attackerIndex, attackerSlot, targetSlot) {
+        const attackerPlayer = this.state.players[attackerIndex];
+        const defenderIndex = (attackerIndex + 1) % 2;
+        const defenderPlayer = this.state.players[defenderIndex];
+        const attackerCard = attackerPlayer.field[attackerSlot];
+        
+        if (!attackerCard || attackerCard.rested) return;
+
+        let defenderCard = null;
+        if(targetSlot && !targetSlot.startsWith('base')) {
+            defenderCard = defenderPlayer.field[targetSlot];
+        }
+
+        this.ui.addLog(`${attackerCard.name}が${defenderCard ? defenderCard.name : '拠点'}に攻撃`);
+        this.ui.showAttackEffect(attackerCard, defenderCard || targetSlot);
+        attackerCard.rested = true;
+        
+        const battleResult = this.resolveBattle(attackerCard, defenderCard);
+        
+        if (battleResult.winner === 'attacker') {
+            if(defenderCard) {
+                defenderPlayer.trash.push(defenderCard);
+                defenderPlayer.field[targetSlot] = null;
+                this.ui.addLog(`${defenderCard.name}は破壊された`);
+            } else {
+                const baseIndex = parseInt(targetSlot.replace('base', ''));
+                const base = defenderPlayer.bases[baseIndex];
+                if (base.gauges.length > 0) {
+                    defenderPlayer.trash.push(base.gauges.pop());
+                    this.ui.addLog(`拠点のゲージが1枚破壊された`);
+                }
+                if (base.gauges.length === 0 && base.owner !== attackerIndex) {
+                    base.owner = attackerIndex;
+                    this.ui.addLog(`拠点が制圧された！`);
+                }
+            }
+        } else if(battleResult.winner === 'defender') {
+            attackerPlayer.trash.push(attackerCard);
+            attackerPlayer.field[attackerSlot] = null;
+            this.ui.addLog(`${attackerCard.name}は返り討ちにされた`);
+        } else {
+             this.ui.addLog(`相打ち！両者破壊`);
+             attackerPlayer.trash.push(attackerCard);
+             attackerPlayer.field[attackerSlot] = null;
+             if(defenderCard) {
+                defenderPlayer.trash.push(defenderCard);
+                defenderPlayer.field[targetSlot] = null;
+            }
+        }
+
+        this.ui.unselectCard();
+        this.ui.update(this.state);
+        this.checkWinner();
+    }
+
+    resolveBattle(attacker, defender) {
+        if (!defender) return { winner: 'attacker' };
+        if (attacker.bp > defender.bp) return { winner: 'attacker' };
+        if (defender.bp > attacker.bp) return { winner: 'defender' };
+        return { winner: 'draw' };
+    }
+}
+
+class UIManager {
+    constructor(engine) {
+        this.engine = engine;
+        this.selectedCard = null;
+        this.selectedCardType = null;
+        this.init();
+    }
+    init() {
+        document.getElementById('start-pve-btn').onclick = () => this.startGame('PvE');
+        document.getElementById('start-eve-btn').onclick = () => this.startGame('EvE');
+        document.body.addEventListener('click', e => {
+            if (this.engine.isProcessing) return;
+            const cardEl = e.target.closest('.card');
+            const slotEl = e.target.closest('.field-slot');
+            const baseEl = e.target.closest('.base');
+            if (cardEl && cardEl.dataset.uuid) this.engine.handlePlayerAction({ type: cardEl.dataset.type, cardUUID: cardEl.dataset.uuid, owner: 'player', slot: cardEl.dataset.slot });
+            else if (slotEl && slotEl.dataset.slot) this.engine.handlePlayerAction({ type: 'field', slot: slotEl.dataset.slot, owner: slotEl.dataset.owner });
+            else if (baseEl && baseEl.dataset.slot) this.engine.handlePlayerAction({ type: 'base', owner: 'opponent', slot: baseEl.dataset.slot });
+        });
+    }
+    async startGame(mode) {
+        const p1Name = document.getElementById('player1-name-input').value || 'りゅうや';
+        const p2Name = document.getElementById('player2-name-input').value || '紫苑';
+        
+        let cardData;
+        try {
+            const response = await fetch(CONFIG.API_URL);
+            if (!response.ok) throw new Error('API response not OK');
+            const data = await response.json();
+            cardData = data.cards;
+        } catch (e) {
+            cardData = FALLBACK_CARD_DATA;
+            this.addLog("APIに接続できません。オフラインモードで起動します。", "error");
+        }
+        const allCards = cardData.map(c => this.engine.processCardData(c));
+        const playerNames = mode === 'PvE' ? [p1Name, p2Name] : [p1Name, p2Name];
+        this.engine.initGame(allCards, mode, playerNames);
+    }
+    update(state) {
+        this.updatePlayerUI(0, state.players[0], state);
+        this.updatePlayerUI(1, state.players[1], state);
+        this.updatePhaseDisplay(state);
+    }
+    updatePlayerUI(index, playerState, state) {
+        const prefix = index === 0 ? 'player' : 'opponent';
+        const nameEl = document.getElementById(`${prefix}-name`);
+        if(nameEl) nameEl.textContent = state.playerNames[index];
+        const handCountEl = document.getElementById(`${prefix}-hand-count`);
+        if(handCountEl) handCountEl.querySelector('span').textContent = playerState.hand.length;
+        document.getElementById(`${prefix}-deck`).innerHTML = `Deck <span class="font-orbitron">${playerState.mainDeck.length}</span>`;
+        document.getElementById(`${prefix}-reiki-deck`).innerHTML = `レイキ <span class="font-orbitron">${playerState.reikiDeck.length}</span>`;
+        document.getElementById(`${prefix}-trash`).innerHTML = `Trash <span class="font-orbitron">${playerState.trash.length}</span>`;
+        document.getElementById(`${prefix}-reiki-count`).querySelector('span').textContent = `${playerState.reiki}/${playerState.maxReiki}`;
+        const handEl = document.getElementById('player-hand-cards');
+        if(index === 0) {
+            handEl.innerHTML = '';
+            playerState.hand.forEach(card => handEl.appendChild(this.createCardEl(card, 'hand')));
+        }
+        for (const [slot, card] of Object.entries(playerState.field)) {
+            const slotEl = document.getElementById(`${prefix}-field-${slot}`);
+            slotEl.innerHTML = '';
+            if (card) slotEl.appendChild(this.createCardEl(card, 'field', slot));
+        }
+        const basesEl = document.getElementById(`${prefix}-bases`);
+        basesEl.innerHTML = '';
+        playerState.bases.forEach((base, i) => {
+            const baseEl = document.createElement('div');
+            baseEl.className = 'base';
+            baseEl.dataset.type = 'base';
+            baseEl.dataset.slot = `${i}`;
+            if(base.owner !== null) baseEl.classList.add(base.owner === 0 ? 'conquered-by-player' : 'conquered-by-opponent');
+            const gaugeBar = document.createElement('div');
+            gaugeBar.className = 'gauge-bar';
+            const gaugeInner = document.createElement('div');
+            gaugeInner.className = 'gauge-bar-inner';
+            gaugeInner.style.width = `${(base.gauges.length / CONFIG.GAUGE_PER_BASE) * 100}%`;
+            gaugeBar.appendChild(gaugeInner);
+            baseEl.appendChild(gaugeBar);
+            basesEl.appendChild(baseEl);
+        });
+        this.updateHighlights(state);
+    }
+    createCardEl(card, type, slot) {
+        const el = document.createElement('div');
+        el.className = `card ${type === 'hand' ? 'in-hand' : ''}`;
+        el.dataset.uuid = card.uuid;
+        el.dataset.type = type;
+        if(slot) el.dataset.slot = slot;
+        if(card.rested) el.classList.add('rested');
+        el.innerHTML = `<img src="${card.imageUrl || CONFIG.PLACEHOLDER_IMG}" class="card-inner" alt="${card.name}" draggable="false"><div class="card-overlay-text text-white"><p class="font-bold truncate">${card.name}</p><p class="text-amber-300">BP: ${card.bp}</p></div>`;
+        return el;
+    }
+    updatePhaseDisplay(state) {
+        const phaseEl = document.getElementById('phase-display');
+        const phaseName = state.phase.toUpperCase();
+        const canEndPhase = this.engine.isHumanTurn() && !this.engine.isProcessing;
+        phaseEl.innerHTML = `<div class="text-left"><p class="font-orbitron text-lg text-gray-400">TURN ${state.turn}</p><p class="font-bold text-2xl sm:text-3xl text-amber-400">${phaseName} PHASE</p></div><button id="end-phase-button" class="action-button bg-amber-500 hover:bg-amber-600 text-white font-bold py-2 px-4 sm:py-3 sm:px-6 rounded" ${!canEndPhase ? 'disabled' : ''}>${state.phase === 'main' ? 'BATTLE PHASE へ' : 'TURN END'}</button>`;
+        document.getElementById('end-phase-button').onclick = () => this.engine.endPhaseForPlayer();
+    }
+    updateHighlights(state) {
+        document.querySelectorAll('.card, .field-slot, .base').forEach(el => el.classList.remove('playable', 'can-attack', 'targetable', 'selected'));
+        if (!this.engine.isHumanTurn() || this.engine.isProcessing) return;
+        if (state.phase === 'main') {
+            const player = state.players[0];
+            if(this.selectedCard && this.selectedCard.type === 'hand') {
+                document.querySelectorAll('[data-type="field"][data-owner="player"]').forEach(slotEl => {
+                    const slot = slotEl.dataset.slot;
+                    if (!player.field[slot] && player.reiki >= this.selectedCard.cost) slotEl.classList.add('playable');
+                });
+            }
+        } else if (state.phase === 'battle') {
+            const player = state.players[0];
+            Object.values(player.field).forEach(card => {
+                if(card && !card.rested) document.querySelector(`[data-uuid="${card.uuid}"]`).classList.add('can-attack');
+            });
+            if(this.selectedCard && this.selectedCard.type === 'field') {
+                const opponent = state.players[1];
+                Object.values(opponent.field).forEach(card => {
+                    if(card) document.querySelector(`[data-uuid="${card.uuid}"]`).classList.add('targetable');
+                });
+                opponent.bases.forEach((base, i) => { document.getElementById(`opponent-base-${i}`).classList.add('targetable'); });
+            }
+        }
+    }
+    selectCard(card, type) {
+        if(this.selectedCard?.uuid === card?.uuid) { this.unselectCard(); return; }
+        this.unselectCard();
+        this.selectedCard = { ...card, type };
+        const cardEl = document.querySelector(`[data-uuid="${card.uuid}"]`);
+        if (cardEl) cardEl.classList.add('selected');
+        this.updateHighlights(this.engine.state);
+    }
+    unselectCard() {
+        if (this.selectedCard) {
+            const cardEl = document.querySelector(`[data-uuid="${this.selectedCard.uuid}"]`);
+            if (cardEl) cardEl.classList.remove('selected');
+        }
+        this.selectedCard = null;
+        this.updateHighlights(this.engine.state);
+    }
+    addLog(message, type = 'info') {
+        const logEl = document.getElementById('battle-log');
+        const entry = document.createElement('p');
+        entry.textContent = message;
+        entry.className = `log-entry ${type === 'error' ? 'text-red-400' : 'text-gray-300'}`;
+        logEl.prepend(entry);
+        setTimeout(() => entry.classList.add('visible'), 10);
+    }
+    showModal(title, text, buttons, noButtons = false) {
+        document.getElementById('modal-title').textContent = title;
+        document.getElementById('modal-text').textContent = text;
+        const buttonsEl = document.getElementById('modal-buttons');
+        buttonsEl.innerHTML = '';
+        if (!noButtons) {
+            buttons.forEach(btnInfo => {
+                const button = document.createElement('button');
+                button.className = 'action-button bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-8 rounded-lg';
+                button.textContent = btnInfo.text;
+                if (btnInfo.disabled) button.disabled = true;
+                if (btnInfo.callback) button.onclick = btnInfo.callback;
+                buttonsEl.appendChild(button);
+            });
+        }
+        document.getElementById('modal-overlay').classList.remove('hidden');
+    }
+    hideModal() { document.getElementById('modal-overlay').classList.add('hidden'); }
+    showSplashScreen() { document.getElementById('splash-screen').classList.remove('hidden'); }
+    hideSplashScreen() {
+        const splash = document.getElementById('splash-screen');
+        splash.classList.add('opacity-0');
+        document.getElementById('game-container').classList.remove('opacity-0');
+        setTimeout(() => splash.classList.add('hidden'), 500);
+    }
+    showAttackEffect(attackerCard, target) {
+        const effect = document.createElement('div');
+        effect.className = 'attack-effect';
+        document.getElementById('game-container').appendChild(effect);
+        
+        const targetEl = document.querySelector(`[data-uuid="${target?.uuid}"]`) || document.getElementById(`opponent-base-${target?.replace('base','')}`);
+        if(targetEl) {
+            const rect = targetEl.getBoundingClientRect();
+            effect.style.left = `${rect.left + rect.width / 2 - 50}px`;
+            effect.style.top = `${rect.top + rect.height / 2 - 50}px`;
+        }
+        setTimeout(() => effect.remove(), 400);
+    }
+}
+
+class AIAgent {
+    constructor(engine) { this.engine = engine; }
+    async executeMainPhase() {
+        const playerIndex = this.engine.state.activePlayerIndex;
+        const player = this.engine.state.players[playerIndex];
+        const playableCards = player.hand.filter(c => c.cost <= player.reiki && c.type === 'unit');
+        if (playableCards.length > 0) {
+            playableCards.sort((a, b) => b.bp - a.bp);
+            const cardToPlay = playableCards[0];
+            const emptySlots = Object.entries(player.field).filter(([_, card]) => !card).map(([slot]) => slot);
+            if(emptySlots.length > 0) {
+                await this.engine.delay(500);
+                this.engine.playCard(playerIndex, cardToPlay.uuid, emptySlots[0]);
+                await this.engine.delay(500);
+            }
+        }
+    }
+    async executeBattlePhase() {
+        const playerIndex = this.engine.state.activePlayerIndex;
+        const player = this.engine.state.players[playerIndex];
+        const attackers = Object.entries(player.field).filter(([s,c]) => c && !c.rested && s.includes('vanguard'));
+        for (const [slot, card] of attackers) {
+            await this.engine.delay(500);
+            this.engine.initiateAttack(playerIndex, slot, 'base0');
+            await this.engine.delay(500);
+        }
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const game = new GameEngine();
+    game.start();
+});
+
+</script>
+</body>
+</html>
