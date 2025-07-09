@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CNP TCG: AI BATTLE ARENA (Paginated API Version)</title>
+    <title>CNP TCG: AI BATTLE ARENA (Data Fixed Version)</title>
     <!-- Chosen Palette: Galactic Arena (Deep navy background, cool gray elements, with vibrant blue for player actions and crimson red for opponent actions/damage, accented with amber for phase indicators and highlights.) -->
     <!-- Application Structure Plan: The application is structured as a single-page 'Battle Arena', directly representing the game board from the source material (playmat guide). This is the most intuitive structure for a card game, allowing users to instantly understand the game state. The user flow is turn-based, guided by a central phase indicator. Interaction is direct: users click cards and targets. This design prioritizes immediate comprehension and immersive gameplay over abstract data representation, which is ideal for translating a game's rules into an interactive experience. -->
     <!-- Visualization & Content Choices:
@@ -135,14 +135,169 @@
 
 <script type="module">
 const CONFIG = {
-    API_URL_BASE: "https://app.cnptcg.monolithos.co.jp/api/cards",
-    API_LIMIT: 100,
     NUM_BASES: 3, GAUGE_PER_BASE: 2, INITIAL_HAND_SIZE: 5, MAX_REIKI: 10, TURN_DELAY: 300, MAX_TURNS: 50,
     PLACEHOLDER_IMG: "https://placehold.co/100x140/030712/f9fafb?text=CNP",
 };
 
-const FALLBACK_CARD_DATA = [
-    { name: "リーリー", rarity: "C", skill_text: "" }, { name: "ミタマ", rarity: "C", skill_text: "" }, { name: "ヤーマ", rarity: "R", skill_text: "【登場時】BPを+2000する。" }, { name: "ナルカミ", rarity: "RR", skill_text: "【登場時】カードを1枚引く。" }, { name: "ルナ", rarity: "RRR", skill_text: "【アタック時】このターンの間、このユニットのBPを+1000する。" }, { name: "レイキ", rarity: "C", name: "レイキ", skill_text: "" }, { name: "レイキ", rarity: "C", skill_text: "" }, { name: "レイキ", rarity: "C", skill_text: "" }, { name: "オロチ", rarity: "SR", skill_text: "" }, { name: "トウテツ", rarity: "C", skill_text: "" }, { name: "キュウビ", rarity: "R", skill_text: "" }, { name: "コノハ", rarity: "C", skill_text: "" }, { name: "イヴェール", rarity: "C", skill_text: "" }, { name: "マカミ", rarity: "R", skill_text: "" },
+const ALL_CARDS_DATA = [
+    {"id":"b0aff5ac-47af-4b2a-aca4-c2636a11759c","name":"レイキ（青）Champion","rarity":"SP-RRR"},
+    {"id":"aca82a3e-0e21-4dc4-944d-90a6217aa69c","name":"ヤーマ","rarity":"SP-RRR"},
+    {"id":"ac6245cc-05a6-48f7-9fd2-60f653a45f13","name":"オロチ","rarity":"SP-RRR"},
+    {"id":"993b4359-3647-441a-86cf-b3c00272a092","name":"トワ","rarity":"SP-RRR"},
+    {"id":"dda31e34-e461-4c02-a550-d843ec23bdcd","name":"セツナ","rarity":"SP-RRR"},
+    {"id":"d6e495cc-fa8e-4ad0-8d86-52bc86ceb22c","name":"マカミ","rarity":"SP-RRR"},
+    {"id":"84fbc052-09e9-4292-909e-306b5e931ff6","name":"ナルカミ","rarity":"SP-RRR"},
+    {"id":"4855e506-3153-4ffe-aee8-d3bc91720f9d","name":"ルナ","rarity":"SP-RRR"},
+    {"id":"cdf52586-8130-4355-bd83-d2eaa2f8cc4a","name":"リーリー","rarity":"SP-RRR"},
+    {"id":"baa248fc-0d11-4e30-97bd-da9a5d8177d7","name":"レイキ（青）V.I.P.","rarity":"P-RRR"},
+    {"id":"1f3cfbc1-d218-4dbe-b7b7-65d6f091c154","name":"ヤーマ","rarity":"P-RRR"},
+    {"id":"24545bd7-d178-40b6-910b-1c06859f805f","name":"オロチ","rarity":"P-RRR"},
+    {"id":"94f33bf4-e2a8-4551-9fb2-9d97e1d80b7d","name":"トワ","rarity":"P-RRR"},
+    {"id":"a6182fc2-28f8-4c87-9ad1-f9a59b9f9db3","name":"セツナ","rarity":"P-RRR"},
+    {"id":"f0fe2dc2-bb89-42d5-aacf-04189dd79332","name":"マカミ","rarity":"P-RRR"},
+    {"id":"6c511e54-3eef-4cb6-8c4d-55b560c81bd2","name":"ナルカミ","rarity":"P-RRR"},
+    {"id":"132fed3c-f0ef-48ec-8480-ff3c278abb74","name":"ルナ","rarity":"P-RRR"},
+    {"id":"7a8ae2c1-1fae-45df-bd6d-68c31707e2ad","name":"リーリー","rarity":"P-RRR"},
+    {"id":"9cf04f2c-795e-4712-8d3c-b2c6507fa9ec","name":"レイキ（青）","rarity":"P-RR"},
+    {"id":"4677cfe0-04ae-4b17-a5aa-a26fe74023a4","name":"レイキ（赤）","rarity":"P-RR"},
+    {"id":"10d66aa7-13e2-4422-94d6-5c06d3e37644","name":"レイキ（無）HIGH RANKER","rarity":"P-RR"},
+    {"id":"c29fb20d-7e8b-41ec-8c53-521f31e4ea1e","name":"フェアリーの協力者 クルミ","rarity":"P-RR"},
+    {"id":"cc16d956-fd93-4b10-8fbd-132525ed611d","name":"奥義:オロチの脱皮","rarity":"P-RR"},
+    {"id":"edc1cd4d-134d-4394-a581-131e0a87f49f","name":"フウジン","rarity":"P-RR"},
+    {"id":"7db52935-8230-4009-99ce-95422b5abae1","name":"ダイアモンド","rarity":"P-RR"},
+    {"id":"a993bba2-c831-4f2f-9a5e-88695650888f","name":"謎の少女","rarity":"P-RR"},
+    {"id":"63519cf7-8505-489c-9d89-73434035d159","name":"奥義:トワとセツナの未来視","rarity":"P-RR"},
+    {"id":"096492ce-9bd6-46af-a3b2-725dff4dcb2d","name":"テンシュ","rarity":"P-RR"},
+    {"id":"71cb3885-e4ea-4ad3-8979-5297d0350742","name":"クオンタム","rarity":"P-RR"},
+    {"id":"dbccbb1c-56ac-4307-92ad-56589881f39b","name":"マネキネコ","rarity":"P-RR"},
+    {"id":"9aa0ac38-51ff-4233-8959-d8376b6b9513","name":"竜人の協力者 ツミカ","rarity":"P-RR"},
+    {"id":"b3bc8f7e-20c4-4950-bf2b-be5f665c276e","name":"奥義:ナルカミの警戒","rarity":"P-RR"},
+    {"id":"4b11e5c3-d5f6-41cc-ab79-dc94a48d0568","name":"ブレイズ","rarity":"P-RR"},
+    {"id":"a2808db1-2fff-43d4-a630-61c47f051853","name":"フェニックス","rarity":"P-RR"},
+    {"id":"ae7cd7f2-6b34-44d2-92c0-c56b74e068f0","name":"ハイメタモルの協力者 ミナモ","rarity":"P-RR"},
+    {"id":"bf112729-92e3-4e67-ab29-8efea9f1866f","name":"奥義:リーリーの巨大化！","rarity":"P-RR"},
+    {"id":"aaf53428-b84a-40dc-911c-4413dc0d9f52","name":"シロクマ","rarity":"P-RR"},
+    {"id":"288e7fe2-c8e4-4bcd-a9a1-fb3663239689","name":"式神・テンゲイ","rarity":"P-RR"},
+    {"id":"8248606f-1a23-49c8-807e-fa6d3f80c544","name":"ギャラクシー","rarity":"P-RR"},
+    {"id":"ac3d2603-3b33-454b-9fee-b955634990fc","name":"プランニング","rarity":"P-RR"},
+    {"id":"6ce31b50-e133-4832-b57e-69861845c632","name":"不屈","rarity":"P-RR"},
+    {"id":"cf5db34f-de89-4ff8-afdf-f89c926b1bd5","name":"ヤーマ","rarity":"RRR"},
+    {"id":"975b2809-3597-442c-a9c9-d3d38e93cbbf","name":"オロチ","rarity":"RRR"},
+    {"id":"cbbe1a12-6939-4fff-9e2e-82e6ff90b231","name":"トワ","rarity":"RRR"},
+    {"id":"0234ac72-74c9-471e-a7c5-47744a9efc5b","name":"セツナ","rarity":"RRR"},
+    {"id":"5d9edcaa-eca6-4458-bee5-a11728b7a49c","name":"マカミ","rarity":"RRR"},
+    {"id":"d79bc8bc-0043-4425-b249-e8c09bc09895","name":"ナルカミ","rarity":"RRR"},
+    {"id":"c80259c9-94dd-43e2-98ed-623f00784b8c","name":"ルナ","rarity":"RRR"},
+    {"id":"a62e4eed-aa4c-450e-afe7-09a3c10eee66","name":"リーリー","rarity":"RRR"},
+    {"id":"3408749d-2987-4220-af42-6c196060b29f","name":"フェアリーの協力者 クルミ","rarity":"RR"},
+    {"id":"e9b9d013-a4d0-4259-ae3c-2ea1ff9c9270","name":"奥義:オロチの脱皮","rarity":"RR"},
+    {"id":"42070615-39ad-422d-8ec1-bb267b8cce9a","name":"フウジン","rarity":"RR"},
+    {"id":"b27cd6ed-e074-4529-8a4e-c95049ee287e","name":"ダイアモンド","rarity":"RR"},
+    {"id":"a94f2d34-88a1-4905-b783-f782163784f9","name":"謎の少女","rarity":"RR"},
+    {"id":"e82cd1bb-a4a9-4875-9c57-0a4de76a8f93","name":"奥義:トワとセツナの未来視","rarity":"RR"},
+    {"id":"c0e2fb25-68fd-4a83-b5ac-5b9c5e65344e","name":"テンシュ","rarity":"RR"},
+    {"id":"ececcb65-5f94-4be5-862e-95805e3625da","name":"クオンタム","rarity":"RR"},
+    {"id":"d7326b59-8ce1-49f3-a2b4-f416abe3481c","name":"マネキネコ","rarity":"RR"},
+    {"id":"2eef537f-9428-4872-aebc-7b6f7e22bb3f","name":"竜人の協力者 ツミカ","rarity":"RR"},
+    {"id":"95a2cd2e-b9e5-41ce-a81a-91c5d61761ac","name":"奥義:ナルカミの警戒","rarity":"RR"},
+    {"id":"2298587d-0337-41a9-a077-9c6c80d8ede2","name":"ブレイズ","rarity":"RR"},
+    {"id":"adc9db4a-47d1-46b5-9f0b-dc30e2e4b760","name":"フェニックス","rarity":"RR"},
+    {"id":"181f723e-5d90-4b0f-b146-b72d5c5892ac","name":"ハイメタモルの協力者 ミナモ","rarity":"RR"},
+    {"id":"6d2334f1-ee6a-4804-abbe-3962c2a13b04","name":"奥義:リーリーの巨大化！","rarity":"RR"},
+    {"id":"dab35201-2d13-447d-bb63-0cfd0fec99c7","name":"シロクマ","rarity":"RR"},
+    {"id":"82f8dbb5-440c-4db6-88c5-73df25759ead","name":"式神・テンゲイ","rarity":"RR"},
+    {"id":"356cfbee-e617-4100-8e57-f0b5e6d512e7","name":"ギャラクシー","rarity":"RR"},
+    {"id":"06ce1fe4-f977-4c88-87d5-965bdf4a6dca","name":"エルフの長老 ズモギン","rarity":"R"},
+    {"id":"1b274bb7-98fc-488f-9c91-a3f5062faab2","name":"奥義:ヤーマの罠","rarity":"R"},
+    {"id":"a531a850-6024-4874-ba07-6dd286e3306b","name":"誘い","rarity":"R"},
+    {"id":"a21931bc-48d2-4100-895e-358e196de9b1","name":"完全変態個体 レトゥ","rarity":"R"},
+    {"id":"65b9a515-1e07-48e3-8c8a-1e60f12fb58e","name":"ユウギリ","rarity":"R"},
+    {"id":"88bfe7c1-85d0-4bca-89ce-9ac917b6fc36","name":"式神・鹿","rarity":"R"},
+    {"id":"f44eaba5-2e8c-4781-9848-1883a53adfdd","name":"エルフのリーダー グムリン","rarity":"R"},
+    {"id":"213f7b6e-3a55-4981-b595-6b17c799e5bf","name":"保安部部長 ヘルナ　","rarity":"R"},
+    {"id":"69990f32-ff2d-4f55-8092-f50fdd3d5c4f","name":"奥義:テンシュの呪詛","rarity":"R"},
+    {"id":"ffa5527b-4ab8-4a03-9173-00ed71d18871","name":"情報の吟味","rarity":"R"},
+    {"id":"389294a3-83f2-4209-9aa8-a050cced9ed5","name":"到着！ミッドガン！","rarity":"R"},
+    {"id":"5871b6aa-881b-4a09-b9c2-fdb1718dd353","name":"イザナミ・試験機","rarity":"R"},
+    {"id":"6332934c-1195-4b80-bb45-066d6d37f14f","name":"高機動型大型機兵","rarity":"R"},
+    {"id":"be9be78f-f45a-4517-a42a-1368489817d5","name":"トゥルーリア学派総合研究長 ネハシーン","rarity":"R"},
+    {"id":"59fe958e-a2f8-42e0-b5de-0fccc2c56c44","name":"キングオーガ オウドン","rarity":"R"},
+    {"id":"0bd69853-17d1-45a5-995b-87627a940e57","name":"奥義:マカミの爪撃","rarity":"R"},
+    {"id":"98cedc32-3d36-4a85-8e49-fbb1018b5136","name":"圧倒的な戦力","rarity":"R"},
+    {"id":"6527d57c-374f-4931-bca4-8a994fe878bd","name":"竜人の怒り","rarity":"R"},
+    {"id":"92a42fb4-3d7f-481f-8685-b7b8ede60bf7","name":"カゲロウ","rarity":"R"},
+    {"id":"5c62c7ee-cb3e-4a14-a1ef-91ef0327b5ee","name":"式神・炎竜","rarity":"R"},
+    {"id":"c59497d9-f0ad-4fe9-83c0-0fcb28fac1d2","name":"竜人のリーダー ミバツ","rarity":"R"},
+    {"id":"b906254f-b3c4-4cc5-9639-4b4e41b14b6a","name":"マグマメタモル","rarity":"R"},
+    {"id":"cc60e802-66f1-44fa-90a7-b926dede1c30","name":"海賊の頭領 スイゲツ","rarity":"R"},
+    {"id":"9798fbe2-393c-48a0-afe6-10a6a56cf5f4","name":"奥義:ルナの跳躍！","rarity":"R"},
+    {"id":"d816d675-f66e-47e9-9fee-6cea4142f7b6","name":"天体観測","rarity":"R"},
+    {"id":"2bb7c90c-a20a-4acd-a16f-9601bda50d65","name":"海水","rarity":"R"},
+    {"id":"a43b1a0a-d2f3-449e-9698-2767aaa403fa","name":"アクアペンギンの長 ニヴェルト","rarity":"R"},
+    {"id":"33080123-5f95-4fcf-a894-cf6c25025179","name":"ミカヅキ","rarity":"R"},
+    {"id":"db598983-9714-4353-83ce-82028cee3bd8","name":"式神・リュウグウノツカイ","rarity":"R"},
+    {"id":"25340041-78ce-4747-9bc9-8b0dea4c3f0c","name":"カイスイメタモル","rarity":"R"},
+    {"id":"4b5d940f-70af-47f2-8331-fcc78b017586","name":"一触即発","rarity":"C"},
+    {"id":"5569d579-e2db-4f90-b697-16e6db41318f","name":"悠久の歴史","rarity":"C"},
+    {"id":"e83677dd-8808-41a1-a0ab-1fc3aa8b0362","name":"プランニング","rarity":"C"},
+    {"id":"c653be11-0847-44d3-8236-afaa590a622b","name":"到着！メテオラス！","rarity":"C"},
+    {"id":"0119b2da-d28c-4ff2-b7ca-8f5dd29106c5","name":"喧噪","rarity":"C"},
+    {"id":"83759ed2-70fe-4e51-8f5b-90adf6e10d70","name":"ベヒーモス","rarity":"C"},
+    {"id":"df6aa081-1cbe-4c20-aab9-a781087afd17","name":"レギオオカミ","rarity":"C"},
+    {"id":"0ce6d630-b725-4ef6-9a7c-8dc9c0eaef35","name":"長樹のウッドレイス ギスクヤ","rarity":"C"},
+    {"id":"e4eff749-9245-41f8-ad39-23954ea2d9eb","name":"フェアリーの蛹","rarity":"C"},
+    {"id":"16e0aa8b-ce26-4542-a300-db90a82b2294","name":"フェアリー","rarity":"C"},
+    {"id":"212750f9-27b5-4abd-af01-7e79aa7ce7ec","name":"式神・蝶","rarity":"C"},
+    {"id":"befa419b-cf9d-43e1-935d-672f8c928153","name":"果実のウッドレイス","rarity":"C"},
+    {"id":"45d58055-90af-463b-890c-d1c92608ee28","name":"偵察するエルフ","rarity":"C"},
+    {"id":"fe51e334-18e3-49ed-b063-9e732a331ffb","name":"ヤーマ","rarity":"C"},
+    {"id":"1b013cde-4337-4f09-a930-17c6fa8e910b","name":"オロチ","rarity":"C"},
+    {"id":"ffad2ecd-4dd0-4690-900a-06375a90cef2","name":"怪しい？協力依頼","rarity":"C"},
+    {"id":"3d7a55f2-2e25-4507-b2a2-43204628afab","name":"裏取引","rarity":"C"},
+    {"id":"c9f1bce6-ce58-4eb5-851b-029b87ea1128","name":"レイキの研究","rarity":"C"},
+    {"id":"37f449a9-9217-4425-b638-148cc856ec5c","name":"徹底抗戦","rarity":"C"},
+    {"id":"da5da4fd-3009-4a2d-9654-77e565024a92","name":"機械ペット・熊","rarity":"C"},
+    {"id":"e9f1713a-98d5-4f0e-ae68-68725241d4fd","name":"大型機兵","rarity":"C"},
+    {"id":"273a3db8-8761-47a7-85da-e326f5afa111","name":"式神・狐","rarity":"C"},
+    {"id":"296a90fb-f69d-4924-9eb7-b1c8f065b1e3","name":"機械ペット・犬","rarity":"C"},
+    {"id":"f4da2cf9-08dc-436d-9992-3b15860a9bfa","name":"機械人","rarity":"C"},
+    {"id":"b8df3366-971c-4384-8121-3019cfe91c0b","name":"ミッドガンの市民","rarity":"C"},
+    {"id":"fe4adfbe-b806-4479-af8a-c1535ab5476a","name":"負傷した反学派構成員","rarity":"C"},
+    {"id":"4eec576c-8cac-48f9-8ec2-2f3c8f4a9ae6","name":"トゥルーリア学派の役員","rarity":"C"},
+    {"id":"3257436a-c2f1-4602-9a19-f8bbd6a65d79","name":"トワ","rarity":"C"},
+    {"id":"43606cbf-4434-4e65-bcc8-fb00d527efe6","name":"セツナ","rarity":"C"},
+    {"id":"70f50101-07db-4db3-9001-7dc9e6f3485e","name":"式神・兵隊","rarity":"C"},
+    {"id":"21656d3a-a959-4fb0-b7cd-8c7f0b80ab10","name":"キングオーガの号令","rarity":"C"},
+    {"id":"bb8b1e32-fcea-40b1-8a36-8741847ee6cb","name":"錬成","rarity":"C"},
+    {"id":"410b3394-db89-4eaa-9d42-4d044d22f1ff","name":"サラマンダーのクロヤキ","rarity":"C"},
+    {"id":"d2041952-3c2b-4c34-a1c4-dd5151e72d29","name":"到着！カグツチ！","rarity":"C"},
+    {"id":"7f2b2926-58d1-45c8-928a-5d637f9c81f1","name":"パワードゴーレム:V","rarity":"C"},
+    {"id":"51bfe175-f41e-4e69-861e-24c2207a34ea","name":"ホムラノワイバーン","rarity":"C"},
+    {"id":"de5134a9-4342-4db5-9d2a-52c8991f5024","name":"量産型ゴーレム","rarity":"C"},
+    {"id":"fa482bbd-8b22-4bf6-9485-4cb80bbf88b3","name":"呑気な竜人","rarity":"C"},
+    {"id":"25281651-cb31-4d6c-8d20-2c793b2c839f","name":"式神・炎百足","rarity":"C"},
+    {"id":"692df52a-4379-4fcd-9610-bc68cd21ffe1","name":"オイシノサラマンダー","rarity":"C"},
+    {"id":"fd75878b-f5a2-4b64-8b5e-1676cb44c4f3","name":"抵抗するオーガ","rarity":"C"},
+    {"id":"9abdb0d4-74c8-4c63-aa69-75bce013a5a5","name":"マカミ","rarity":"C"},
+    {"id":"bd5f642b-983e-4e53-b021-cd753ecea9e0","name":"ナルカミ","rarity":"C"},
+    {"id":"cef48049-134e-4dc9-8575-957a49e4bf77","name":"鍛冶場のドワーフ","rarity":"C"},
+    {"id":"f79a7ac1-6730-4158-9936-c0bf2a3339c0","name":"サンドワーム","rarity":"C"},
+    {"id":"53fb7843-1ef0-4c6e-a4ec-e9ffe79f143a","name":"戦火のアクアノーヴァ","rarity":"C"},
+    {"id":"bab2d7e3-2969-47b5-b5a6-8582e577be8e","name":"奪還同盟結成！","rarity":"C"},
+    {"id":"cc73e1b1-9a1b-4657-ae88-b1416e309427","name":"不屈","rarity":"C"},
+    {"id":"d902dccf-9c66-4550-94a1-0798d2eb6be8","name":"圧政","rarity":"C"},
+    {"id":"40ae0525-91ac-453d-81cb-4c44c230d0c4","name":"不穏な影","rarity":"C"},
+    {"id":"266f6594-968a-4491-91f3-ab7a085bc138","name":"遊泳するアクアペンギン","rarity":"C"},
+    {"id":"39e96bba-f7d2-4881-8102-32a00107ccfd","name":"レイキ結合体:海水","rarity":"C"},
+    {"id":"51ffd269-674d-4ff7-a6b4-92c97c2ba879","name":"魚人の市民","rarity":"C"},
+    {"id":"796320f3-c0d4-4723-8549-4aa3ff1f399b","name":"食事する海賊","rarity":"C"},
+    {"id":"5bb43310-2d50-4a7e-9b6a-519a18abe230","name":"ルナ","rarity":"C"},
+    {"id":"f4e34eed-b4ec-47c9-8095-827d7ac75513","name":"リーリー","rarity":"C"},
+    {"id":"7a0f71dc-5187-4c0f-ba0f-a1196d3454c4","name":"メタモル","rarity":"C"},
+    {"id":"e64386f7-a33e-430a-83bd-ef8d6ee89341","name":"式神・ベタ","rarity":"C"},
+    {"id":"26d7c934-65ef-40f1-afd7-c39bcfc2b40b","name":"式神・クラゲ","rarity":"C"},
+    {"id":"a3614bb9-1178-4c4b-bcee-83d9f82238b8","name":"アクアノーヴァの元飼い猫","rarity":"C"},
+    {"id":"eb8e19f7-3f25-41f0-9029-ff9c6dc08abf","name":"ミタマ","rarity":"P"}
 ];
 
 const IMAGE_CACHE = {
@@ -422,17 +577,7 @@ class UIManager {
         const p1Name = document.getElementById('player1-name-input').value || 'りゅうや';
         const p2Name = document.getElementById('player2-name-input').value || '紫苑';
         
-        let cardData;
-        try {
-            const response = await fetch(CONFIG.API_URL);
-            if (!response.ok) throw new Error('API response not OK');
-            const data = await response.json();
-            cardData = data.cards;
-        } catch (e) {
-            cardData = FALLBACK_CARD_DATA;
-            this.addLog("APIに接続できません。オフラインモードで起動します。", "error");
-        }
-        const allCards = cardData.map(c => this.engine.processCardData(c));
+        const allCards = ALL_CARDS_DATA.map(c => this.engine.processCardData(c));
         const playerNames = mode === 'PvE' ? [p1Name, p2Name] : [p1Name, p2Name];
         this.engine.initGame(allCards, mode, playerNames);
     }
