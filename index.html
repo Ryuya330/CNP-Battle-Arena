@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CNP TCG: AI BATTLE ARENA (CORS Fixed Edition)</title>
+    <title>CNP TCG: AI BATTLE ARENA (Paginated API Version)</title>
     <!-- Chosen Palette: Galactic Arena (Deep navy background, cool gray elements, with vibrant blue for player actions and crimson red for opponent actions/damage, accented with amber for phase indicators and highlights.) -->
     <!-- Application Structure Plan: The application is structured as a single-page 'Battle Arena', directly representing the game board from the source material (playmat guide). This is the most intuitive structure for a card game, allowing users to instantly understand the game state. The user flow is turn-based, guided by a central phase indicator. Interaction is direct: users click cards and targets. This design prioritizes immediate comprehension and immersive gameplay over abstract data representation, which is ideal for translating a game's rules into an interactive experience. -->
     <!-- Visualization & Content Choices:
@@ -135,7 +135,8 @@
 
 <script type="module">
 const CONFIG = {
-    API_URL: "https://app.cnptcg.monolithos.co.jp/api/cards?limit=500&sort=newest",
+    API_URL_BASE: "https://app.cnptcg.monolithos.co.jp/api/cards",
+    API_LIMIT: 100,
     NUM_BASES: 3, GAUGE_PER_BASE: 2, INITIAL_HAND_SIZE: 5, MAX_REIKI: 10, TURN_DELAY: 300, MAX_TURNS: 50,
     PLACEHOLDER_IMG: "https://placehold.co/100x140/030712/f9fafb?text=CNP",
 };
