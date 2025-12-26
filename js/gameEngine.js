@@ -47,8 +47,8 @@ export class GameEngine {
     async loadCardData() {
         try {
             console.log("カードデータの読み込みを開始します...");
-            const apiCards = await this.fetchAllCardsFromApi();
-            console.log(`${apiCards.length}枚のカードをAPIから取得しました。`);
+            const apiCards = await this.fetchCardsFromConfiguredSources();
+            console.log(`${apiCards.length}枚のカードを取得しました。`);
 
             const localDataResponse = await fetch('data/cards.json');
             if (!localDataResponse.ok) throw new Error('ローカルのスキル定義の読み込みに失敗しました。');
@@ -79,6 +79,53 @@ export class GameEngine {
                     { text: "リロード", callback: () => window.location.reload() }
                 ]);
             });
+        }
+    }
+
+    /**
+     * data/card_sources.json に指定されたエンドポイントからカードを取得し、足りない場合は従来の再帰取得にフォールバックする。
+     * @returns {Promise<Object[]>} 全カードデータ
+     */
+    async fetchCardsFromConfiguredSources() {
+        try {
+            const sourcesResponse = await fetch('data/card_sources.json');
+            if (!sourcesResponse.ok) {
+                console.warn('card_sources.json の読み込みに失敗したため、既存のAPI巡回にフォールバックします。');
+                return this.fetchAllCardsFromApi();
+            }
+            const sources = await sourcesResponse.json();
+            const endpoints = sources.apiEndpoints || [];
+            if (!endpoints.length) {
+                console.warn('card_sources.json にエンドポイントがありません。既存のAPI巡回を実行します。');
+                return this.fetchAllCardsFromApi();
+            }
+
+            const pagePromises = endpoints.map(async (url) => {
+                const apiResponse = await fetch(url, {
+                    headers: { "accept": "application/json, text/plain, */*" },
+                    method: "GET",
+                    mode: "cors"
+                });
+                if (!apiResponse.ok) {
+                    throw new Error(`カードデータ取得に失敗しました: ${url}`);
+                }
+                const apiData = await apiResponse.json();
+                return apiData.cards || [];
+            });
+
+            const pages = await Promise.all(pagePromises);
+            const deduped = [];
+            const seen = new Set();
+            pages.flat().forEach(card => {
+                if (!seen.has(card.id)) {
+                    seen.add(card.id);
+                    deduped.push(card);
+                }
+            });
+            return deduped;
+        } catch (error) {
+            console.warn('card_sources.json 経由の取得に失敗したため、既存のAPI巡回にフォールバックします。', error);
+            return this.fetchAllCardsFromApi();
         }
     }
 
@@ -128,8 +175,8 @@ export class GameEngine {
         else if (card.name.includes("協力者")) type = CARD_TYPES.SUPPORT;
         else if (card.name.startsWith('レイキ')) type = CARD_TYPES.REIKI;
         
-        const cardImageUrl = `https://cnptcg.s3.ap-northeast-1.amazonaws.com/images/cards/${encodeURIComponent(card.name)}_${encodeURIComponent(card.rarity)}.png`;
-        
+        const cardImageUrl = card.imageUrl || card.thumbnailUrl || `https://cnptcg.s3.ap-northeast-1.amazonaws.com/images/cards/${encodeURIComponent(card.name)}_${encodeURIComponent(card.rarity)}.png`;
+
         return { 
             ...card, 
             uuid: self.crypto.randomUUID(), 

@@ -1,0 +1,22 @@
+{
+  "apiEndpoints": [
+    "https://app.cnptcg.monolithos.co.jp/api/cards?limit=18&offset=0&sort=newest",
+    "https://app.cnptcg.monolithos.co.jp/api/cards?limit=18&offset=18&sort=newest",
+    "https://app.cnptcg.monolithos.co.jp/api/cards?limit=18&offset=36&sort=newest",
+    "https://app.cnptcg.monolithos.co.jp/api/cards?limit=18&offset=54&sort=newest",
+    "https://app.cnptcg.monolithos.co.jp/api/cards?limit=18&offset=72&sort=newest",
+    "https://app.cnptcg.monolithos.co.jp/api/cards?limit=18&offset=90&sort=newest",
+    "https://app.cnptcg.monolithos.co.jp/api/cards?limit=18&offset=108&sort=newest",
+    "https://app.cnptcg.monolithos.co.jp/api/cards?limit=18&offset=126&sort=newest",
+    "https://app.cnptcg.monolithos.co.jp/api/cards?limit=18&offset=144&sort=newest",
+    "https://app.cnptcg.monolithos.co.jp/api/cards?limit=18&offset=162&sort=newest",
+    "https://app.cnptcg.monolithos.co.jp/api/cards?limit=18&offset=180&sort=newest",
+    "https://app.cnptcg.monolithos.co.jp/api/cards?limit=18&offset=198&sort=newest",
+    "https://app.cnptcg.monolithos.co.jp/api/cards?limit=18&offset=216&sort=newest",
+    "https://app.cnptcg.monolithos.co.jp/api/cards?limit=18&offset=234&sort=newest",
+    "https://app.cnptcg.monolithos.co.jp/api/cards?limit=18&offset=252&sort=newest",
+    "https://app.cnptcg.monolithos.co.jp/api/cards?limit=18&offset=270&sort=newest",
+    "https://app.cnptcg.monolithos.co.jp/api/cards?limit=18&offset=288&sort=newest",
+    "https://app.cnptcg.monolithos.co.jp/api/cards?limit=18&offset=306&sort=newest"
+  ]
+}
